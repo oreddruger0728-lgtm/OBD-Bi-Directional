@@ -14,6 +14,7 @@ import { decodeVIN, type VehicleSpecs } from "@/utils/vinDecoder";
 import {
   BluetoothTransport,
   isBluetoothClassicAvailable,
+  requestBluetoothPermissions,
   type BTDevice,
 } from "@/utils/bluetoothTransport";
 import { LIVE_PIDS, FREEZE_FRAME_PIDS, ELM327_INIT_COMMANDS, parseResponse, parseDTCResponse, parseVINResponse } from "@/utils/elm327";
@@ -233,6 +234,11 @@ export function OBD2Provider({ children }: { children: React.ReactNode }) {
   const scanPairedDevices = useCallback(async () => {
     setIsScanningBT(true);
     try {
+      const granted = await requestBluetoothPermissions();
+      if (!granted) {
+        setPairedDevices([]);
+        return;
+      }
       const devices = await BluetoothTransport.getBondedDevices();
       setPairedDevices(devices);
     } catch (e: any) {
@@ -317,11 +323,15 @@ export function OBD2Provider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        // Ensure runtime Bluetooth permissions are granted (Android 12+)
+        const granted = await requestBluetoothPermissions();
+        if (!granted) { setConnectionStatus("ERROR"); return; }
+
         // Check BT is enabled
         const enabled = await BluetoothTransport.isEnabled();
         if (!enabled) {
-          const granted = await BluetoothTransport.requestEnable();
-          if (!granted) { setConnectionStatus("ERROR"); return; }
+          const enableGranted = await BluetoothTransport.requestEnable();
+          if (!enableGranted) { setConnectionStatus("ERROR"); return; }
         }
 
         const transport = new BluetoothTransport();
