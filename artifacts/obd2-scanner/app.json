@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "OBD2 Pro",
+    "slug": "obd2-scanner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "obd2-scanner",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0B0F"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.obd2pro.app",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "OBD2 Pro needs Bluetooth to communicate with your ELM327 adapter.",
+        "NSBluetoothPeripheralUsageDescription": "OBD2 Pro needs Bluetooth to communicate with your ELM327 adapter."
+      }
+    },
+    "android": {
+      "package": "com.obd2pro.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0A0B0F"
+      },
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-dev-client"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
