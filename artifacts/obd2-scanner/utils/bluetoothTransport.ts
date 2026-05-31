@@ -8,7 +8,7 @@
  * We buffer incoming bytes and resolve the pending promise when '>' is seen.
  */
 
-import { Platform } from "react-native";
+import { PermissionsAndroid, Platform } from "react-native";
 
 // ── Module availability guard ─────────────────────────────────────────────────
 // react-native-bluetooth-classic requires a custom build (not Expo Go).
@@ -31,6 +31,45 @@ function getBTModule(): any | null {
 export function isBluetoothClassicAvailable(): boolean {
   if (Platform.OS === "web") return false;
   return getBTModule() !== null;
+}
+
+/**
+ * Requests the Android runtime permissions needed to discover and connect to
+ * Bluetooth Classic devices. On Android 12+ (API 31) this is BLUETOOTH_CONNECT /
+ * BLUETOOTH_SCAN; on older versions it's ACCESS_FINE_LOCATION. Without these the
+ * paired-device list comes back empty and connecting fails silently.
+ *
+ * Returns true if all required permissions are granted.
+ */
+export async function requestBluetoothPermissions(): Promise<boolean> {
+  if (Platform.OS !== "android") return true;
+  try {
+    const apiLevel =
+      typeof Platform.Version === "number"
+        ? Platform.Version
+        : parseInt(String(Platform.Version), 10) || 0;
+
+    if (apiLevel >= 31) {
+      const result = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+      ]);
+      return (
+        result["android.permission.BLUETOOTH_CONNECT"] ===
+          PermissionsAndroid.RESULTS.GRANTED &&
+        result["android.permission.BLUETOOTH_SCAN"] ===
+          PermissionsAndroid.RESULTS.GRANTED
+      );
+    }
+
+    // Android 11 and below: scanning for paired devices needs location.
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+    );
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  } catch {
+    return false;
+  }
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
