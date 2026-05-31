@@ -232,7 +232,8 @@ export default function ConnectScreen() {
                 </Text>
                 <Text style={[styles.noDevicesHint, { color: colors.mutedForeground }]}>
                   Pair your ELM327 in Android Settings → Bluetooth.{"\n"}
-                  Default PIN is usually <Text style={{ color: colors.primary }}>1234</Text> or <Text style={{ color: colors.primary }}>0000</Text>.
+                  Default PIN is usually <Text style={{ color: colors.primary }}>1234</Text> or <Text style={{ color: colors.primary }}>0000</Text>.{"\n\n"}
+                  If a permission popup appears, tap <Text style={{ color: colors.primary }}>Allow</Text> for Nearby devices, then press Refresh.
                 </Text>
               </View>
             )}
