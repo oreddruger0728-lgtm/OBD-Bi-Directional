@@ -77,7 +77,7 @@ interface OBD2ContextValue {
   setWifiPort: (p: number) => void;
   setBTDevice: (address: string, name: string) => void;
   scanPairedDevices: () => Promise<void>;
-  connect: () => Promise<void>;
+  connect: () => Promise<boolean>;
   disconnect: () => void;
   refreshDTCs: () => Promise<void>;
   clearDTCs: () => Promise<void>;
@@ -302,63 +302,62 @@ export function OBD2Provider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Connect ─────────────────────────────────────────────────────────────────
-  const connect = useCallback(async () => {
+  // FIX: returns true on success / false on failure so callers don't race
+  //      against React state settling after await.
+  const connect = useCallback(async (): Promise<boolean> => {
     setConnectionStatus("CONNECTING");
 
     if (connectionMode === "DEMO") {
       await new Promise((r) => setTimeout(r, 1200));
       setConnectionStatus("CONNECTED");
       startDemoPolling();
-      return;
+      return true;
     }
 
     if (connectionMode === "BT") {
-      if (!btAvailable) {
-        setConnectionStatus("ERROR");
-        return;
-      }
-      if (!btDeviceAddress) {
-        setConnectionStatus("ERROR");
-        return;
-      }
+      if (!btAvailable) { setConnectionStatus("ERROR"); return false; }
+      if (!btDeviceAddress) { setConnectionStatus("ERROR"); return false; }
 
       try {
-        // Ensure runtime Bluetooth permissions are granted (Android 12+)
         const granted = await requestBluetoothPermissions();
-        if (!granted) { setConnectionStatus("ERROR"); return; }
+        if (!granted) { setConnectionStatus("ERROR"); return false; }
 
-        // Check BT is enabled
         const enabled = await BluetoothTransport.isEnabled();
         if (!enabled) {
           const enableGranted = await BluetoothTransport.requestEnable();
-          if (!enableGranted) { setConnectionStatus("ERROR"); return; }
+          if (!enableGranted) { setConnectionStatus("ERROR"); return false; }
         }
+
+        // FIX: null out any stale transport before creating a new one
+        btPollActiveRef.current = false;
+        btTransportRef.current?.disconnect().catch(() => {});
+        btTransportRef.current = null;
 
         const transport = new BluetoothTransport();
         await transport.connect(btDeviceAddress);
         btTransportRef.current = transport;
 
-        // Run ELM327 initialization sequence
         for (const { cmd, delayMs } of ELM327_INIT_COMMANDS) {
           await transport.send(cmd, 5000);
           await new Promise((r) => setTimeout(r, delayMs));
         }
 
-        // Read battery voltage as a quick sanity check
-        const voltage = await transport.send("ATRV", 2000);
-
         setConnectionStatus("CONNECTED");
         startBTPolling();
+        return true;
       } catch (e: any) {
+        // FIX: always null the ref on failure so reconnect starts clean
+        btPollActiveRef.current = false;
+        btTransportRef.current?.disconnect().catch(() => {});
         btTransportRef.current = null;
         setConnectionStatus("ERROR");
+        return false;
       }
-      return;
     }
 
-    // WIFI — placeholder (real TCP socket needs a native module too)
-    await new Promise((r) => setTimeout(r, 3000));
+    // WIFI not yet implemented — set ERROR immediately with clear state
     setConnectionStatus("ERROR");
+    return false;
   }, [connectionMode, btDeviceAddress, btAvailable, startDemoPolling, startBTPolling]);
 
   // ── Disconnect ──────────────────────────────────────────────────────────────
