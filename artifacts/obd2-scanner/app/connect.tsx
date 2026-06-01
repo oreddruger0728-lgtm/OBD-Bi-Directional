@@ -132,12 +132,12 @@ export default function ConnectScreen() {
   const [editHost, setEditHost] = useState(wifiHost);
   const [editPort, setEditPort] = useState(wifiPort.toString());
 
-  // Load paired BT devices when BT mode is selected
   useEffect(() => {
     if (connectionMode === "BT" && btAvailable && pairedDevices.length === 0) {
       scanPairedDevices();
     }
-  }, [connectionMode]);
+  // ── FIX: correct dependency array — don't include pairedDevices
+  }, [connectionMode, btAvailable]);
 
   const handleConnect = async () => {
     if (connectionMode === "WIFI") {
@@ -149,15 +149,24 @@ export default function ConnectScreen() {
       return;
     }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await connect();
-    if (connectionStatus !== "ERROR") {
+
+    // ── FIX: connect() now returns a boolean so we don't race against
+    //         React state updating asynchronously after await.
+    const success = await connect();
+
+    if (success) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } else {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Connection Failed", connectionMode === "BT"
-        ? "Could not connect to the ELM327 adapter. Make sure it's powered on and paired in Bluetooth settings."
-        : "Could not connect. Check the adapter IP and port.");
+      Alert.alert(
+        "Connection Failed",
+        connectionMode === "BT"
+          ? "Could not connect to the ELM327 adapter. Make sure it's powered on and paired in Bluetooth settings."
+          : connectionMode === "WIFI"
+          ? "Could not connect. Check the adapter IP and port."
+          : "Demo mode failed to start. Please try again."
+      );
     }
   };
 
@@ -303,6 +312,8 @@ export default function ConnectScreen() {
           icon="wifi"
           selected={connectionMode === "WIFI"}
           onSelect={() => setConnectionMode("WIFI")}
+          badgeText="NEEDS BUILD"
+          badgeColor="#FFB800"
         />
 
         {connectionMode === "WIFI" && (
