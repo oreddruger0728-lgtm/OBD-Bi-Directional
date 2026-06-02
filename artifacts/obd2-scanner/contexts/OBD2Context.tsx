@@ -19,7 +19,6 @@ import {
 } from "@/utils/bluetoothTransport";
 import { LIVE_PIDS, FREEZE_FRAME_PIDS, ELM327_INIT_COMMANDS, parseResponse, parseDTCResponse, parseVINResponse } from "@/utils/elm327";
 import { parsePID01Response } from "@/utils/readinessMonitors";
-import { SERVICE_RESETS } from "@/utils/serviceResets";
 
 export type ConnectionMode = "DEMO" | "WIFI" | "BT";
 export type ConnectionStatus = "DISCONNECTED" | "CONNECTING" | "CONNECTED" | "ERROR";
