@@ -92,6 +92,7 @@ interface OBD2ContextValue {
   clearVehicleSpecs: () => void;
   runActuatorTest: (commandId: string, command: string) => Promise<void>;
   runServiceReset: (resetId: string) => Promise<{ success: boolean; message: string }>;
+  sendRawCommand: (cmd: string, timeoutMs?: number) => Promise<string>;
 }
 
 const EMPTY_LIVE_DATA: LiveData = {
@@ -534,21 +535,130 @@ export function OBD2Provider({ children }: { children: React.ReactNode }) {
     }
   }, [connectionStatus, connectionMode]);
 
-  // ── Actuator test & service reset ────────────────────────────────────────────
-  const runActuatorTest = useCallback(async (commandId: string, _command: string) => {
+  // ── Low-level raw command sender (used by PCM screen + service resets) ───────
+  const sendRawCommand = useCallback(async (cmd: string, timeoutMs = 3000): Promise<string> => {
+    if (connectionMode === "DEMO") {
+      await new Promise((r) => setTimeout(r, 200));
+      if (cmd.startsWith("AT")) return "OK";
+      if (cmd === "04") return "44 00";
+      if (cmd.startsWith("09")) return "49 " + cmd.slice(2) + " 01 31 48 47 42 48 35 31 4A 58 4D 4E 31 30 39 31 38 36";
+      if (cmd.startsWith("22")) return "62" + cmd.slice(2) + "00C8";
+      if (cmd.startsWith("1003")) return "50 03";
+      if (cmd.startsWith("2703")) return "67 03 A1 B2";
+      if (cmd.startsWith("27")) return "67 04 00";
+      if (cmd.startsWith("31")) return "71 01 " + cmd.slice(4);
+      if (cmd.startsWith("2E")) return "6E" + cmd.slice(2, 6);
+      if (cmd.startsWith("2F")) return "6F" + cmd.slice(2, 6) + "03";
+      return "41 " + cmd.slice(2) + " FF FF";
+    }
+    if (connectionMode === "BT" && btTransportRef.current) {
+      return btTransportRef.current.send(cmd, timeoutMs);
+    }
+    throw new Error("Not connected");
+  }, [connectionMode]);
+
+  // ── Actuator test (bi-directional) ──────────────────────────────────────────
+  const runActuatorTest = useCallback(async (commandId: string, command: string) => {
     if (connectionStatus !== "CONNECTED") return;
-    setActiveTest(commandId); setTestResult(null);
-    await new Promise((r) => setTimeout(r, 2000));
-    setTestResult(connectionMode === "DEMO" ? "OK - Test completed successfully" : "NO RESPONSE");
+    setActiveTest(commandId);
+    setTestResult(null);
+
+    // Import at call-time to avoid circular dep
+    const { BIDI_COMMANDS } = await import("@/utils/bidirectionalCommands");
+    const def = BIDI_COMMANDS.find((c) => c.id === commandId);
+
+    try {
+      if (connectionMode === "BT" && btTransportRef.current) {
+        // 1. Set module address header
+        const addr = def?.moduleAddr ?? "7E0";
+        await btTransportRef.current.send(`ATSH ${addr}`, 1000);
+
+        // 2. Open extended diagnostic session
+        await btTransportRef.current.send("1003", 2000);
+
+        // 3. Send activate command
+        const raw = await btTransportRef.current.send(command, def?.duration ?? 3000);
+        const isPositive = /^(6F|7F)/.test(raw.replace(/\s/g, "")) === false &&
+          !raw.includes("ERROR") && !raw.includes("NO DATA") && !raw.includes("NR");
+
+        setTestResult(isPositive ? `OK — Response: ${raw.trim()}` : `ERROR: ${raw.trim()}`);
+
+        // 4. Wait then send off/return-to-ECU command
+        await new Promise((r) => setTimeout(r, def?.duration ?? 3000));
+        if (def?.offCommand) {
+          await btTransportRef.current.send(def.offCommand, 1000).catch(() => {});
+        }
+        // 5. Return to default session
+        await btTransportRef.current.send("1001", 500).catch(() => {});
+        // 6. Reset header to ECM
+        await btTransportRef.current.send("ATSH 7E0", 500).catch(() => {});
+
+      } else if (connectionMode === "DEMO") {
+        await new Promise((r) => setTimeout(r, 1500));
+        setTestResult("OK — Test completed successfully (DEMO)");
+      }
+    } catch (e: any) {
+      setTestResult(`ERROR: ${e?.message ?? "No response"}`);
+    }
+
     await new Promise((r) => setTimeout(r, 3000));
-    setActiveTest(null); setTestResult(null);
+    setActiveTest(null);
+    setTestResult(null);
   }, [connectionStatus, connectionMode]);
 
-  const runServiceReset = useCallback(async (_resetId: string): Promise<{ success: boolean; message: string }> => {
+  // ── Service reset (real OBD command sequence) ────────────────────────────────
+  const runServiceReset = useCallback(async (resetId: string): Promise<{ success: boolean; message: string }> => {
     if (connectionStatus !== "CONNECTED") return { success: false, message: "Not connected" };
-    await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000));
-    if (connectionMode === "DEMO") return { success: true, message: "Reset completed successfully" };
-    return { success: false, message: "No response from module" };
+
+    const reset = SERVICE_RESETS.find((r) => r.id === resetId);
+    if (!reset) return { success: false, message: "Unknown reset ID" };
+
+    if (connectionMode === "DEMO") {
+      await new Promise((r) => setTimeout(r, 2000));
+      return { success: true, message: `${reset.name} completed successfully (DEMO)` };
+    }
+
+    if (connectionMode === "BT" && btTransportRef.current) {
+      const log: string[] = [];
+      try {
+        for (const step of reset.obdCommands) {
+          const raw = await btTransportRef.current
+            .send(step.cmd, step.timeoutMs ?? 3000)
+            .catch((e: any) => `ERROR: ${e?.message ?? "timeout"}`);
+
+          log.push(`${step.cmd} → ${raw.trim().slice(0, 30)}`);
+
+          if (step.expectOk) {
+            const failed = raw.includes("ERROR") || raw.includes("NO DATA") ||
+              raw.includes("NR") || raw.includes("?");
+            // 7F XX 22/24/33/35 = negative response codes (busy, denied, etc.)
+            const negResp = /7F\s*\w{2}\s*(22|24|25|33|35)/i.test(raw);
+            if (failed || negResp) {
+              // Don't hard-fail on ATSH or 3E keep-alives — those sometimes get no echo
+              if (!step.cmd.startsWith("AT") && step.cmd !== "3E00") {
+                return {
+                  success: false,
+                  message: `${step.desc} failed\nResponse: ${raw.trim().slice(0, 50)}`,
+                };
+              }
+            }
+          }
+
+          // Small delay between commands
+          await new Promise((r) => setTimeout(r, 150));
+        }
+
+        return { success: true, message: `${reset.name} completed.\n${log.slice(-2).join("\n")}` };
+      } catch (e: any) {
+        return { success: false, message: `Failed: ${e?.message ?? "unknown error"}` };
+      } finally {
+        // Always return to ECM and default session
+        btTransportRef.current?.send("ATSH 7E0", 500).catch(() => {});
+        btTransportRef.current?.send("1001", 500).catch(() => {});
+      }
+    }
+
+    return { success: false, message: "Not connected to BT adapter" };
   }, [connectionStatus, connectionMode]);
 
   // ── Per-DTC freeze frame (Mode 02) ──────────────────────────────────────────
@@ -607,7 +717,7 @@ export function OBD2Provider({ children }: { children: React.ReactNode }) {
     setConnectionMode, setWifiHost, setWifiPort, setBTDevice, scanPairedDevices,
     connect, disconnect, refreshDTCs, clearDTCs, scanAllModules, clearModuleDTCs,
     refreshFreezeFrame, fetchFreezeFrame, refreshVehicleInfo, refreshReadiness,
-    refreshMisfires, decodeVin, clearVehicleSpecs, runActuatorTest, runServiceReset,
+    refreshMisfires, decodeVin, clearVehicleSpecs, runActuatorTest, runServiceReset, sendRawCommand,
   };
 
   return <OBD2Context.Provider value={value}>{children}</OBD2Context.Provider>;
