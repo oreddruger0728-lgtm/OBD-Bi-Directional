@@ -27,6 +27,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "arrow.left.arrow.right", selected: "arrow.left.arrow.right.circle.fill" }} />
         <Label>Bi-Di</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="pcm">
+        <Icon sf={{ default: "cpu", selected: "cpu.fill" }} />
+        <Label>PCM</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="vehicle">
         <Icon sf={{ default: "car", selected: "car.fill" }} />
         <Label>Vehicle</Label>
@@ -101,6 +105,14 @@ function ClassicTabLayout() {
           title: "Bi-Di",
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="arrow.left.arrow.right" tintColor={color} size={20} /> : <MaterialCommunityIcons name="swap-horizontal" size={20} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="pcm"
+        options={{
+          title: "PCM",
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="cpu" tintColor={color} size={20} /> : <MaterialCommunityIcons name="chip" size={20} color={color} />,
         }}
       />
       <Tabs.Screen

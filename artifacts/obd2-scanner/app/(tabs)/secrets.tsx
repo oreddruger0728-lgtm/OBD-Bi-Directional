@@ -376,7 +376,7 @@ export default function SecretsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.subNav, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View style={[styles.subNav, { backgroundColor: colors.card, borderBottomColor: colors.border, paddingTop: insets.top + 4 }]}>
         {VIEW_LABELS.map(({ id, label, icon }) => (
           <TouchableOpacity
             key={id}

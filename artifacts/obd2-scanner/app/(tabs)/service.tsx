@@ -20,7 +20,6 @@ const CATEGORY_ICONS: Record<string, string> = {
   Body: "square",
   HVAC: "thermometer",
   Battery: "battery-charging",
-  "Keys & Security": "key",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -32,7 +31,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   Body: "#94A3B8",
   HVAC: "#60A5FA",
   Battery: "#F59E0B",
-  "Keys & Security": "#E879F9",
 };
 
 interface StepSheetProps {
