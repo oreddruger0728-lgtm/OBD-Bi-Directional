@@ -1,7 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -92,28 +91,6 @@ export default function SettingsScreen() {
 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [imperialUnits, setImperialUnits] = useState(false);
-  const [autoConnect, setAutoConnect] = useState(false);
-  const [keepScreenAwake, setKeepScreenAwake] = useState(true);
-
-  useEffect(() => {
-    AsyncStorage.multiGet([
-      "obd2_setting_imperial_units",
-      "obd2_setting_show_advanced",
-      "obd2_setting_auto_connect",
-      "obd2_setting_keep_awake",
-    ]).then((pairs) => {
-      const vals = Object.fromEntries(pairs);
-      setImperialUnits(vals.obd2_setting_imperial_units === "true");
-      setShowAdvanced(vals.obd2_setting_show_advanced === "true");
-      setAutoConnect(vals.obd2_setting_auto_connect === "true");
-      setKeepScreenAwake(vals.obd2_setting_keep_awake !== "false");
-    }).catch(() => {});
-  }, []);
-
-  const persistSwitch = async (key: string, value: boolean, setter: (v: boolean) => void) => {
-    setter(value);
-    await AsyncStorage.setItem(key, value ? "true" : "false");
-  };
 
   const isConnected = connectionStatus === "CONNECTED";
 
@@ -262,39 +239,9 @@ export default function SettingsScreen() {
             rightElement={
               <Switch
                 value={imperialUnits}
-                onValueChange={(v) => persistSwitch("obd2_setting_imperial_units", v, setImperialUnits)}
+                onValueChange={setImperialUnits}
                 trackColor={{ false: colors.border, true: colors.primary + "80" }}
                 thumbColor={imperialUnits ? colors.primary : colors.mutedForeground}
-              />
-            }
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <SettingsRow
-            icon="connection"
-            iconColor="#34D399"
-            label="Auto Connect"
-            sublabel="Reconnect to the saved adapter on launch"
-            rightElement={
-              <Switch
-                value={autoConnect}
-                onValueChange={(v) => persistSwitch("obd2_setting_auto_connect", v, setAutoConnect)}
-                trackColor={{ false: colors.border, true: colors.primary + "80" }}
-                thumbColor={autoConnect ? colors.primary : colors.mutedForeground}
-              />
-            }
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <SettingsRow
-            icon="cellphone-lock"
-            iconColor="#A78BFA"
-            label="Keep Screen Awake"
-            sublabel="Preserve this preference for long scan sessions"
-            rightElement={
-              <Switch
-                value={keepScreenAwake}
-                onValueChange={(v) => persistSwitch("obd2_setting_keep_awake", v, setKeepScreenAwake)}
-                trackColor={{ false: colors.border, true: colors.primary + "80" }}
-                thumbColor={keepScreenAwake ? colors.primary : colors.mutedForeground}
               />
             }
           />
@@ -303,7 +250,7 @@ export default function SettingsScreen() {
         {/* ── Advanced ─────────────────────────────────────────────────────── */}
         <TouchableOpacity
           style={[styles.advancedToggle, { borderColor: colors.border }]}
-          onPress={() => persistSwitch("obd2_setting_show_advanced", !showAdvanced, setShowAdvanced)}
+          onPress={() => setShowAdvanced((v) => !v)}
           activeOpacity={0.7}
         >
           <Text style={[styles.advancedToggleText, { color: colors.mutedForeground }]}>
