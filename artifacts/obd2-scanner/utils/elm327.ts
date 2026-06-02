@@ -6,12 +6,17 @@
 
 // ── AT Init sequence ──────────────────────────────────────────────────────────
 export const ELM327_INIT_COMMANDS = [
-  { cmd: "ATZ",    desc: "Reset adapter",              delayMs: 1500 },
+  { cmd: "ATZ",    desc: "Reset adapter",              delayMs: 1600 },
+  { cmd: "ATD",    desc: "Restore adapter defaults",   delayMs: 300 },
   { cmd: "ATE0",   desc: "Echo off",                   delayMs: 200 },
   { cmd: "ATL0",   desc: "Linefeeds off",              delayMs: 200 },
   { cmd: "ATS0",   desc: "Spaces off",                 delayMs: 200 },
   { cmd: "ATH1",   desc: "Headers on",                 delayMs: 200 },
+  { cmd: "ATAL",   desc: "Allow long messages",        delayMs: 200 },
+  { cmd: "ATAT1",  desc: "Adaptive timing",            delayMs: 200 },
+  { cmd: "ATST96", desc: "Set stable timeout",         delayMs: 200 },
   { cmd: "ATSP0",  desc: "Auto protocol detect",       delayMs: 500 },
+  { cmd: "0100",   desc: "Wake vehicle and detect protocol", delayMs: 500 },
 ];
 
 // ── PID definitions ───────────────────────────────────────────────────────────

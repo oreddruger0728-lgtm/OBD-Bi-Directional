@@ -82,7 +82,7 @@ export const OBD_PROTOCOLS: OBDProtocol[] = [
     pins: "Pin 7 (K-Line)",
     era: "1999–2008",
     coverage: ["VW", "Audi", "BMW", "Mercedes-Benz", "Volvo", "Saab", "Asian imports"],
-    notes: "Keyword Protocol 2000 with slow 5-baud initialization. Used for legacy body/comfort modules that don't respond to fast init. Used for older body, airbag, and instrument-cluster diagnostic access where supported.",
+    notes: "Keyword Protocol 2000 with slow 5-baud initialization. Used for legacy body/comfort modules that don't respond to fast init. Needed for older VAG immobilizer, airbag, and instrument cluster access.",
     category: "Legacy",
   },
   {

@@ -3,6 +3,7 @@ export type TrickCategory =
   | "Diagnostic Mode"
   | "ELM327 Command"
   | "Manufacturer Secret"
+  | "Key & Immobilizer"
   | "Community Tip";
 
 export interface SecretTrick {
@@ -109,6 +110,62 @@ export const BUILT_IN_TRICKS: SecretTrick[] = [
       "Ignition OFF ends diagnostic mode",
     ],
     pinNote: "ALDL 12-pin: Pin 5 (Test) → Pin 4 (GND)",
+    source: "builtin",
+  },
+  {
+    id: "ford_pats_relearn",
+    title: "Ford PATS: Security Relearn Without IDS (Specific Models)",
+    category: "Manufacturer Secret",
+    makes: ["Ford", "Lincoln", "Mercury"],
+    difficulty: "Advanced",
+    description: "On some Ford PATS (Passive Anti-Theft System) Tier I vehicles, you can program transponder keys without a dealer IDS tool by using two currently-working programmed keys. This is the 'two-key' programming method.",
+    steps: [
+      "You need TWO currently working Ford-coded transponder keys",
+      "Insert Key 1 (working) and turn to RUN for at least 1 second",
+      "Within 5 seconds, switch to Key 2 (second working key) and turn to RUN for 1 second",
+      "Security LED should go off and stay on for 3 seconds, then flash rapidly",
+      "Within 10 seconds, insert the NEW blank key and turn to RUN",
+      "If accepted: security LED will go off momentarily, then return to normal",
+      "Cycle ignition off and test new key",
+    ],
+    warning: "Only works on PATS Tier I (older) systems. PATS Tier II, III require IDS or a J2534 pass-through programmer.",
+    source: "builtin",
+  },
+  {
+    id: "vw_coding_mode",
+    title: "VW/Audi: Force K-Line Init Before CAN for Legacy Modules",
+    category: "Manufacturer Secret",
+    makes: ["VW", "Audi", "Skoda", "SEAT"],
+    difficulty: "Medium",
+    description: "On VAG (VW Audi Group) vehicles with mixed CAN+K-Line architectures (2002–2008), setting your ELM327 to ATSP4 (KWP 5-baud) forces communication with legacy modules (airbags, instrument cluster, immobilizer) that don't respond on CAN.",
+    steps: [
+      "Connect ELM327 adapter to OBD2 port",
+      "Send AT command: ATSP4",
+      "Send: ATSH 81 10 F1",
+      "Then send: 81 to wake up the module",
+      "Module address 01=ECM, 05=Airbag, 07=Display, 11=Engine 2, 15=Airbag 2, 25=Immobilizer",
+      "For immobilizer (IMMO): module 25, start byte 8C 10 F1",
+    ],
+    pinNote: "Uses OBD2 pin 7 (K-Line). Must use ATSP4 or ATSP5.",
+    source: "builtin",
+  },
+  {
+    id: "elm327_passthru_raw",
+    title: "ELM327: Send Raw CAN Frames in Pass-Through Mode",
+    category: "ELM327 Command",
+    makes: ["All (CAN vehicles)"],
+    difficulty: "Advanced",
+    description: "The ELM327 can send arbitrary raw CAN frames when properly configured, bypassing OBD2 formatting. This is how advanced functions like UDS (Mode 27 security access, Mode 2E write) are sent to non-OBD2-standard modules.",
+    steps: [
+      "Set header: ATSH 7E0 (ECM) or 7B0 (BCM) etc.",
+      "Disable auto-formatting: ATCAF0",
+      "Send flow control: ATFCSM1 (auto FC)",
+      "Set reply address: ATAR (auto receive)",
+      "Now type raw hex frames: e.g. '10 03' to start a UDS diagnostic session",
+      "Response will be raw hex bytes — no OBD2 interpretation",
+      "UDS Service IDs: 10=session, 27=security access, 22=read by ID, 2E=write by ID, 14=clear DTC, 19=read DTC info",
+    ],
+    warning: "Writing to modules with raw UDS (2E service) can corrupt or brick a module. Only use with confirmed calibration files and correct module addressing.",
     source: "builtin",
   },
   {
@@ -289,6 +346,7 @@ export const TRICK_CATEGORIES: TrickCategory[] = [
   "Diagnostic Mode",
   "ELM327 Command",
   "Manufacturer Secret",
+  "Key & Immobilizer",
   "Community Tip",
 ];
 
@@ -306,5 +364,6 @@ export const CATEGORY_COLORS: Record<TrickCategory, string> = {
   "Diagnostic Mode": "#00D4FF",
   "ELM327 Command": "#A78BFA",
   "Manufacturer Secret": "#E879F9",
+  "Key & Immobilizer": "#F472B6",
   "Community Tip": "#34D399",
 };

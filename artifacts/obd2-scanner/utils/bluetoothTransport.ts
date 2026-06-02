@@ -87,6 +87,7 @@ export class BluetoothTransport {
   private pendingResolve: ((data: string) => void) | null = null;
   private pendingReject: ((err: Error) => void) | null = null;
   private pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+  private writeQueue: Promise<string> = Promise.resolve("");
 
   // ── Static helpers ──────────────────────────────────────────────────────────
 
@@ -139,7 +140,26 @@ export class BluetoothTransport {
     const target = (devices as any[]).find((d: any) => d.address === address);
     if (!target) throw new Error(`Device ${address} not found in paired devices`);
 
-    this.device = await target.connect({ delimiter: "\r" });
+    // Many ELM327 clones only work reliably with the default SPP UUID.
+    // react-native-bluetooth-classic exposes either device.connect() or
+    // connectToDevice(address). Try both so different Android builds work.
+    try {
+      this.device = await target.connect({
+        delimiter: ">",
+        connectionType: "binary",
+        secureSocket: false,
+      });
+    } catch (firstError) {
+      try {
+        this.device = await bt.connectToDevice(address, {
+          delimiter: ">",
+          connectionType: "binary",
+          secureSocket: false,
+        });
+      } catch {
+        this.device = await target.connect();
+      }
+    }
 
     // Subscribe to incoming data
     this.dataSubscription = this.device.onDataReceived(({ data }: { data: string }) => {
@@ -176,25 +196,50 @@ export class BluetoothTransport {
    * ELM327 '>' prompt. Returns the response text.
    */
   send(command: string, timeoutMs = 3000): Promise<string> {
-    if (!this.device) return Promise.reject(new Error("Not connected"));
+    const run = async () => {
+      if (!this.device) throw new Error("Not connected");
+      const cleanCommand = command.replace(/\s+/g, "").toUpperCase().startsWith("AT")
+        ? command.trim().toUpperCase()
+        : command.replace(/\s+/g, "").toUpperCase();
 
-    return new Promise<string>((resolve, reject) => {
-      this.pendingResolve = resolve;
-      this.pendingReject = reject;
-      this.buffer = "";
+      return new Promise<string>((resolve, reject) => {
+        if (this.pendingResolve) {
+          reject(new Error("Previous Bluetooth command is still pending"));
+          return;
+        }
 
-      this.pendingTimeout = setTimeout(() => {
-        this._settle(new Error(`Timeout waiting for response to: ${command}`));
-      }, timeoutMs);
+        this.pendingResolve = resolve;
+        this.pendingReject = reject;
+        this.buffer = "";
 
-      this.device.write(command + "\r").catch((e: any) => {
-        this._settle(new Error("Write failed: " + (e?.message ?? String(e))));
+        this.pendingTimeout = setTimeout(() => {
+          this._settle(new Error(`Timeout waiting for response to: ${cleanCommand}`));
+        }, timeoutMs);
+
+        this.device.write(cleanCommand + "\r").catch((e: any) => {
+          this._settle(new Error("Write failed: " + (e?.message ?? String(e))));
+        });
       });
-    });
+    };
+
+    // Serial adapters cannot handle overlapping writes. Queue every command.
+    const next = this.writeQueue.then(run, run);
+    this.writeQueue = next.then(() => "", () => "");
+    return next;
   }
 
   isConnected(): boolean {
     return this.device !== null;
+  }
+
+  async healthCheck(): Promise<boolean> {
+    if (!this.device) return false;
+    try {
+      const rv = await this.send("ATRV", 2000);
+      return rv.length > 0 && !/UNABLE|ERROR/i.test(rv);
+    } catch {
+      return false;
+    }
   }
 
   async disconnect(): Promise<void> {
