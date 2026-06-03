@@ -6,17 +6,21 @@
 
 // ── AT Init sequence ──────────────────────────────────────────────────────────
 export const ELM327_INIT_COMMANDS = [
-  { cmd: "ATZ",    desc: "Reset adapter",              delayMs: 1600 },
+  // FIX: 2000ms for ATZ — cheap ELM327 clones need the extra time after reset
+  { cmd: "ATZ",    desc: "Reset adapter",              delayMs: 2000 },
   { cmd: "ATD",    desc: "Restore adapter defaults",   delayMs: 300 },
   { cmd: "ATE0",   desc: "Echo off",                   delayMs: 200 },
   { cmd: "ATL0",   desc: "Linefeeds off",              delayMs: 200 },
   { cmd: "ATS0",   desc: "Spaces off",                 delayMs: 200 },
   { cmd: "ATH1",   desc: "Headers on",                 delayMs: 200 },
   { cmd: "ATAL",   desc: "Allow long messages",        delayMs: 200 },
-  { cmd: "ATAT1",  desc: "Adaptive timing",            delayMs: 200 },
-  { cmd: "ATST96", desc: "Set stable timeout",         delayMs: 200 },
-  { cmd: "ATSP0",  desc: "Auto protocol detect",       delayMs: 500 },
-  { cmd: "0100",   desc: "Wake vehicle and detect protocol", delayMs: 500 },
+  { cmd: "ATAT2",  desc: "Adaptive timing mode 2 (more patient)", delayMs: 200 },
+  // FIX: removed ATST96 — conflicts with ATAT, causes timeouts on slow ECUs
+  // FIX: added ATCAF1 — CAN auto-formatting for clean multi-frame ISO-TP
+  { cmd: "ATCAF1", desc: "CAN auto-formatting on",     delayMs: 200 },
+  { cmd: "ATSP0",  desc: "Auto protocol detect",       delayMs: 600 },
+  // FIX: removed 0100 from init — NO DATA response crashes the sequence
+  //      Protocol detection happens naturally on first real PID request
 ];
 
 // ── PID definitions ───────────────────────────────────────────────────────────

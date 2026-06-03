@@ -88,6 +88,8 @@ export class BluetoothTransport {
   private pendingReject: ((err: Error) => void) | null = null;
   private pendingTimeout: ReturnType<typeof setTimeout> | null = null;
   private writeQueue: Promise<string> = Promise.resolve("");
+  // FIX: track intentional disconnects so isConnected() is accurate
+  _disconnected = false;
 
   // ── Static helpers ──────────────────────────────────────────────────────────
 
@@ -144,26 +146,33 @@ export class BluetoothTransport {
     // react-native-bluetooth-classic exposes either device.connect() or
     // connectToDevice(address). Try both so different Android builds work.
     try {
+      // FIX: ELM327 is ASCII text — use "utf-8" NOT "binary"
+      // delimiter ">" tells the lib to buffer until the ELM327 prompt arrives
       this.device = await target.connect({
         delimiter: ">",
-        connectionType: "binary",
+        charset: "utf-8",
         secureSocket: false,
       });
     } catch (firstError) {
       try {
         this.device = await bt.connectToDevice(address, {
           delimiter: ">",
-          connectionType: "binary",
+          charset: "utf-8",
           secureSocket: false,
         });
       } catch {
+        // Last resort: bare connect with no options (works on some OEM builds)
         this.device = await target.connect();
       }
     }
 
+    this._disconnected = false;
+
     // Subscribe to incoming data
-    this.dataSubscription = this.device.onDataReceived(({ data }: { data: string }) => {
-      this.buffer += data;
+    // FIX: data may arrive as Buffer on some Android builds — always toString()
+    this.dataSubscription = this.device.onDataReceived(({ data }: { data: any }) => {
+      const str = typeof data === "string" ? data : data?.toString?.("utf8") ?? String(data);
+      this.buffer += str;
       // ELM327 terminates each response with the '>' prompt
       if (this.buffer.includes(">") && this.pendingResolve) {
         this._settle(null);
@@ -229,7 +238,8 @@ export class BluetoothTransport {
   }
 
   isConnected(): boolean {
-    return this.device !== null;
+    // FIX: also check _disconnected so stale refs don't report connected
+    return this.device !== null && !this._disconnected;
   }
 
   async healthCheck(): Promise<boolean> {
@@ -243,11 +253,16 @@ export class BluetoothTransport {
   }
 
   async disconnect(): Promise<void> {
+    this._disconnected = true;  // FIX: mark before teardown
     this.pendingTimeout !== null && clearTimeout(this.pendingTimeout);
     this.dataSubscription?.remove();
     this.dataSubscription = null;
-    this.pendingResolve = null;
-    this.pendingReject = null;
+    // Reject any pending command so callers don't hang
+    if (this.pendingReject) {
+      this.pendingReject(new Error("Disconnected"));
+      this.pendingResolve = null;
+      this.pendingReject = null;
+    }
     this.buffer = "";
     try { await this.device?.disconnect(); } catch {}
     this.device = null;
