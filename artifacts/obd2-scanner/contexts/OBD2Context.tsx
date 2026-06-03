@@ -338,8 +338,16 @@ export function OBD2Provider({ children }: { children: React.ReactNode }) {
         await transport.connect(btDeviceAddress);
         btTransportRef.current = transport;
 
-        for (const { cmd, delayMs } of ELM327_INIT_COMMANDS) {
-          await transport.send(cmd, 5000);
+        // FIX: ATZ needs extra time on cheap clones — use 6s for first cmd, 3s rest
+        for (let i = 0; i < ELM327_INIT_COMMANDS.length; i++) {
+          const { cmd, delayMs } = ELM327_INIT_COMMANDS[i];
+          const timeout = i === 0 ? 6000 : 3000; // ATZ gets 6s
+          try {
+            await transport.send(cmd, timeout);
+          } catch {
+            // Non-fatal: some commands like ATCAF1 return "?" on older ELM327 v1.4
+            // Continue init — the adapter will still work
+          }
           await new Promise((r) => setTimeout(r, delayMs));
         }
 
@@ -352,6 +360,14 @@ export function OBD2Provider({ children }: { children: React.ReactNode }) {
         btTransportRef.current?.disconnect().catch(() => {});
         btTransportRef.current = null;
         setConnectionStatus("ERROR");
+        // Surface a readable error message for debugging
+        const msg = e?.message ?? String(e);
+        console.warn("[BT Connect Error]", msg);
+        // Common failures:
+        // "Device not found" → adapter not paired in Android settings
+        // "Write failed" → connected but adapter didn't respond (wrong device?)
+        // "Timeout waiting for response to: ATZ" → adapter too slow or wrong baud
+        // "Previous Bluetooth command is still pending" → state machine stuck
         return false;
       }
     }
