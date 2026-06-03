@@ -8,6 +8,7 @@ import {
   TouchableOpacity, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ConnectionBar } from "@/components/ConnectionBar";
 import { useColors } from "@/hooks/useColors";
 import {
   BUILT_IN_TRICKS, CATEGORY_COLORS, TRICK_CATEGORIES, TRICK_MAKES,
@@ -376,6 +377,7 @@ export default function SecretsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <ConnectionBar />
       <View style={[styles.subNav, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         {VIEW_LABELS.map(({ id, label, icon }) => (
           <TouchableOpacity
@@ -579,8 +581,8 @@ const styles = StyleSheet.create({
   searchBar: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
   searchInput: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 36 },
   searchText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
-  filterRow: { paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
-  filterChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1 },
+  filterRow: { paddingHorizontal: 12, paddingVertical: 8, gap: 6, minHeight: 44, alignItems: "center" },
+  filterChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, minHeight: 30, justifyContent: "center" },
   filterChipText: { fontSize: 11, fontFamily: "Inter_500Medium" },
   list: { padding: 12, paddingTop: 0 },
   counterRow: { paddingVertical: 6 },
