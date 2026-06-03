@@ -48,7 +48,14 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "react-native-bluetooth-classic",
+        {
+          "bluetoothAlwaysPermissionText": "This app uses Bluetooth to communicate with your ELM327 OBD2 adapter.",
+          "bluetoothPeripheralPermissionText": "This app uses Bluetooth to communicate with your ELM327 OBD2 adapter."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
