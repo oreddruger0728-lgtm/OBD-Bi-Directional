@@ -92,8 +92,19 @@ android {
         applicationId 'com.obd2pro.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        // AUTO-INCREMENT: uses git commit count so versionCode increases
+        // every time you push and rebuild — no manual changes needed.
+        // Falls back to 1 if git is unavailable (e.g. fresh clone without history).
+        versionCode = { ->
+            try {
+                def count = ["git", "rev-list", "--count", "HEAD"]
+                    .execute([], rootDir).text.trim().toInteger()
+                return count > 0 ? count : 1
+            } catch (ignored) {
+                return 1
+            }
+        }()
+        versionName "1.0." + versionCode
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -112,7 +123,8 @@ android {
                 keyAlias System.getenv('KEY_ALIAS') ?: 'obd2pro'
                 keyPassword System.getenv('KEY_PASSWORD')
             } else {
-                // Fall back to debug keystore for local builds (sideloadable)
+                // WARNING: debug keystore — sideloadable APK only, NOT Play Store
+                println "⚠ KEYSTORE_PASSWORD not set — using debug keystore (not suitable for Play Store)"
                 storeFile file('debug.keystore')
                 storePassword 'android'
                 keyAlias 'androiddebugkey'

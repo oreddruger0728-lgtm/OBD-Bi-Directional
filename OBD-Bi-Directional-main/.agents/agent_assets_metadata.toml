@@ -1,0 +1,13 @@
+uploads = []
+
+[[generated]]
+id = "uZIlmoggYnUyo9qxuBGsq"
+uri = "file://artifacts/obd2-scanner/assets/images/icon.png"
+type = "image"
+title = "obd2 scanner icon"
+
+[[outputs]]
+id = "wor1UXzNKuHGaiQhCdzvv"
+uri = "file://artifacts/obd2-scanner/playstore-signing/OBD2Pro-PlayStore-Signing.tar.gz"
+type = "unspecified"
+title = "OBD2 Pro — Play Store Signing Bundle (keystore + secrets)"
